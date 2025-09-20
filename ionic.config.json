@@ -1,0 +1,7 @@
+{
+  "name": "ion-react-medusa",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "react-vite"
+}

@@ -67,62 +67,69 @@ const CheckoutPage: React.FC = () => {
     const updateCartWithCustomer = async () => {
       if (customer && cart && client) {
         try {
-          const updatePayload: any = {
-            customer_id: customer.id,
-            email: customer.email,
-          };
+          let shippingAddress = null;
+          let billingAddress = null;
 
-          // Only add addresses if they exist and have required fields
+          // Prepare shipping address
           if (customer.shipping_addresses && customer.shipping_addresses.length > 0) {
-            const shippingAddress = customer.shipping_addresses[0];
-            if (shippingAddress.first_name && shippingAddress.last_name && shippingAddress.address_1) {
-             // Validate country code - if it's inconsistent with location data, skip the address
-             const isBrazilianLocation = shippingAddress.city === "Belo Horizonte" || shippingAddress.province === "MG";
-             const isDenmarkCode = shippingAddress.country_code === "dk";
-             
-             if (isBrazilianLocation && isDenmarkCode) {
-               console.warn("Skipping address with inconsistent country code (dk) for Brazilian location");
-             } else {
-              updatePayload.shipping_address = {
-                first_name: shippingAddress.first_name,
-                last_name: shippingAddress.last_name,
-                company: shippingAddress.company || null,
-                address_1: shippingAddress.address_1,
-                address_2: shippingAddress.address_2 || null,
-                city: shippingAddress.city,
-                country_code: shippingAddress.country_code,
-                province: shippingAddress.province || null,
-                postal_code: shippingAddress.postal_code,
-                phone: shippingAddress.phone || null,
-              };
-             }
+            const address = customer.shipping_addresses[0];
+            if (address.first_name && address.last_name && address.address_1) {
+              // Validate country code - if it's inconsistent with location data, skip the address
+              const isBrazilianLocation = address.city === "Belo Horizonte" || address.province === "MG";
+              const isDenmarkCode = address.country_code === "dk";
+              
+              if (isBrazilianLocation && isDenmarkCode) {
+                console.warn("Skipping shipping address with inconsistent country code (dk) for Brazilian location");
+              } else {
+                shippingAddress = {
+                  first_name: address.first_name,
+                  last_name: address.last_name,
+                  company: address.company || null,
+                  address_1: address.address_1,
+                  address_2: address.address_2 || null,
+                  city: address.city,
+                  country_code: address.country_code,
+                  province: address.province || null,
+                  postal_code: address.postal_code,
+                  phone: address.phone || null,
+                };
+              }
             }
           }
 
+          // Prepare billing address
           if (customer.billing_address && customer.billing_address.first_name && customer.billing_address.last_name) {
-           // Validate country code for billing address too
-           const isBrazilianLocation = customer.billing_address.city === "Belo Horizonte" || customer.billing_address.province === "MG";
-           const isDenmarkCode = customer.billing_address.country_code === "dk";
-           
-           if (isBrazilianLocation && isDenmarkCode) {
-             console.warn("Skipping billing address with inconsistent country code (dk) for Brazilian location");
-           } else {
-            updatePayload.billing_address = {
-              first_name: customer.billing_address.first_name,
-              last_name: customer.billing_address.last_name,
-              company: customer.billing_address.company || null,
-              address_1: customer.billing_address.address_1,
-              address_2: customer.billing_address.address_2 || null,
-              city: customer.billing_address.city,
-              country_code: customer.billing_address.country_code,
-              province: customer.billing_address.province || null,
-              postal_code: customer.billing_address.postal_code,
-              phone: customer.billing_address.phone || null,
-            };
-           }
+            // Validate country code for billing address too
+            const isBrazilianLocation = customer.billing_address.city === "Belo Horizonte" || customer.billing_address.province === "MG";
+            const isDenmarkCode = customer.billing_address.country_code === "dk";
+            
+            if (isBrazilianLocation && isDenmarkCode) {
+              console.warn("Skipping billing address with inconsistent country code (dk) for Brazilian location");
+            } else {
+              billingAddress = {
+                first_name: customer.billing_address.first_name,
+                last_name: customer.billing_address.last_name,
+                company: customer.billing_address.company || null,
+                address_1: customer.billing_address.address_1,
+                address_2: customer.billing_address.address_2 || null,
+                city: customer.billing_address.city,
+                country_code: customer.billing_address.country_code,
+                province: customer.billing_address.province || null,
+                postal_code: customer.billing_address.postal_code,
+                phone: customer.billing_address.phone || null,
+              };
+            }
           }
 
-          await client.carts.update(cart.id, updatePayload);
+          const cartUpdateData = {
+            customer_id: customer.id,
+            email: customer.email,
+            billing_address: billingAddress,
+            shipping_address: shippingAddress,
+            region_id: cart.region_id,
+          };
+
+          await client.carts.update(cart.id, cartUpdateData);
 
         } catch (error) {
           console.error("Failed to update cart with customer data", error);

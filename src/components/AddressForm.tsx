@@ -12,6 +12,7 @@ import {
   IonCardTitle,
   IonText,
   IonSpinner,
+  IonCheckbox,
 } from '@ionic/react';
 import { useRegionContext } from '../contexts/RegionContext';
 
@@ -35,6 +36,8 @@ interface AddressFormProps {
   onCancel: () => void;
   title: string;
   isLoading?: boolean;
+  addressType?: 'shipping' | 'billing';
+  showDefaultOptions?: boolean;
 }
 
 const AddressForm: React.FC<AddressFormProps> = ({ 
@@ -42,7 +45,9 @@ const AddressForm: React.FC<AddressFormProps> = ({
   onSave, 
   onCancel, 
   title, 
-  isLoading = false 
+  isLoading = false,
+  addressType = 'shipping',
+  showDefaultOptions = true
 }) => {
   const { regions } = useRegionContext();
   const [formData, setFormData] = useState<Omit<Address, 'id'>>({
@@ -57,6 +62,8 @@ const AddressForm: React.FC<AddressFormProps> = ({
     postal_code: '',
     phone: '',
   });
+  const [isDefaultShipping, setIsDefaultShipping] = useState(false);
+  const [isDefaultBilling, setIsDefaultBilling] = useState(false);
 
   useEffect(() => {
     if (address) {
@@ -72,6 +79,8 @@ const AddressForm: React.FC<AddressFormProps> = ({
         postal_code: address.postal_code || '',
         phone: address.phone || '',
       });
+      setIsDefaultShipping(address.is_default_shipping || false);
+      setIsDefaultBilling(address.is_default_billing || false);
     }
   }, [address]);
 
@@ -89,7 +98,13 @@ const AddressForm: React.FC<AddressFormProps> = ({
       return;
     }
 
-    await onSave(formData);
+    const addressWithDefaults = {
+      ...formData,
+      is_default_shipping: isDefaultShipping,
+      is_default_billing: isDefaultBilling,
+    };
+
+    await onSave(addressWithDefaults);
   };
 
   const getCountryOptions = () => {
@@ -206,6 +221,38 @@ const AddressForm: React.FC<AddressFormProps> = ({
             placeholder="Enter phone number"
           />
         </IonItem>
+
+        {showDefaultOptions && (
+          <>
+            <IonItem>
+              <IonLabel>
+                <h3>Default Options</h3>
+              </IonLabel>
+            </IonItem>
+
+            <IonItem>
+              <IonCheckbox
+                checked={isDefaultShipping}
+                onIonChange={(e) => setIsDefaultShipping(e.detail.checked)}
+              />
+              <IonLabel style={{ marginLeft: '1rem' }}>
+                <h3>Set as default shipping address</h3>
+                <p>Use this address as your default shipping address</p>
+              </IonLabel>
+            </IonItem>
+
+            <IonItem>
+              <IonCheckbox
+                checked={isDefaultBilling}
+                onIonChange={(e) => setIsDefaultBilling(e.detail.checked)}
+              />
+              <IonLabel style={{ marginLeft: '1rem' }}>
+                <h3>Set as default billing address</h3>
+                <p>Use this address as your default billing address</p>
+              </IonLabel>
+            </IonItem>
+          </>
+        )}
 
         <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem' }}>
           <IonButton 

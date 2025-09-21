@@ -93,8 +93,19 @@ const Tab2: React.FC = () => {
         await updateBillingAddress(addressData);
       } else {
         if (editingAddress?.id) {
-          await updateShippingAddress(editingAddress.id, addressData);
+          // For updates, we need to handle default settings separately
+          const { is_default_shipping, is_default_billing, ...addressUpdate } = addressData;
+          await updateShippingAddress(editingAddress.id, addressUpdate);
+          
+          // Handle default settings after address update
+          if (is_default_shipping && !editingAddress.is_default_shipping) {
+            await setDefaultShippingAddress(editingAddress.id);
+          }
+          if (is_default_billing && !editingAddress.is_default_billing) {
+            await setDefaultBillingAddress(editingAddress.id);
+          }
         } else {
+          // For new addresses, include default flags
           await addShippingAddress(addressData);
         }
       }
@@ -237,6 +248,8 @@ const Tab2: React.FC = () => {
             }}
             title={`${editingAddress ? 'Edit' : 'Add'} ${addressType === 'billing' ? 'Billing' : 'Shipping'} Address`}
             isLoading={isLoading}
+            addressType={addressType}
+            showDefaultOptions={true}
           />
         </IonContent>
       </IonPage>

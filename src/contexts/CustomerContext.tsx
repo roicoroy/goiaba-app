@@ -72,8 +72,7 @@ export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) 
             created_at,
             updated_at,
             deleted_at,
-            is_default_billing,
-            is_default_shipping,
+            // Keep default flags for API calls
             ...cleanAddress
         } = address;
         return cleanAddress;
@@ -232,10 +231,15 @@ export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) 
                 'Authorization': `Bearer ${token}`,
             };
 
+            // Include default flags in the address creation
             const response = await fetch(`${API_CONFIG.BASE_URL}/store/customers/me/addresses`, {
                 method: 'POST',
                 headers,
-                body: JSON.stringify(cleanAddressForApi(address)),
+                body: JSON.stringify({
+                    ...cleanAddressForApi(address),
+                    is_default_shipping: address.is_default_shipping || false,
+                    is_default_billing: address.is_default_billing || false,
+                }),
             });
 
             if (response.ok) {

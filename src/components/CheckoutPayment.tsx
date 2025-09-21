@@ -9,6 +9,8 @@ import {
   IonButton,
   IonText,
   IonIcon,
+  IonSelect,
+  IonSelectOption,
   IonSpinner,
 } from '@ionic/react';
 import { card } from 'ionicons/icons';
@@ -16,7 +18,6 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { useCartContext } from '../contexts/CartContext';
 import { useCheckoutContext } from '../contexts/CheckoutContext';
-import { useMedusa } from 'medusa-react';
 
 import { API_CONFIG } from '../utils/constants';
 
@@ -33,21 +34,36 @@ const PaymentForm: React.FC<CheckoutPaymentProps> = ({ onNext, onPrevious }) => 
   const elements = useElements();
   const { cart } = useCartContext();
   const { 
+    paymentProviders,
+    selectedPaymentProvider,
+    setSelectedPaymentProvider,
+    paymentCollection,
     paymentSessions, 
     selectedPaymentSession,
+    createPaymentSession,
     initializePaymentSessions 
   } = useCheckoutContext();
-  const { client } = useMedusa();
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     initializePaymentSessions();
-  }, []);
+  }, [initializePaymentSessions]);
+
+  const handleProviderChange = async (providerId: string) => {
+    const provider = paymentProviders.find(p => p.id === providerId);
+    if (provider) {
+      setSelectedPaymentProvider(provider);
+      // Create payment session for the selected provider
+      if (paymentCollection) {
+        await createPaymentSession(providerId);
+      }
+    }
+  };
 
   const handlePayment = async () => {
-    if (!stripe || !elements || !cart?.id || !selectedPaymentSession) {
+    if (!stripe || !elements || !selectedPaymentSession?.data?.client_secret) {
       return;
     }
 
@@ -60,27 +76,19 @@ const PaymentForm: React.FC<CheckoutPaymentProps> = ({ onNext, onPrevious }) => 
         throw new Error('Card element not found');
       }
 
-      // Create payment method with Stripe
-      const { error: stripeError, paymentMethod } = await stripe.createPaymentMethod({
-        type: 'card',
-        card: cardElement,
-      });
+      // Confirm the payment with Stripe using the client secret
+      const { error: stripeError } = await stripe.confirmCardPayment(
+        selectedPaymentSession.data.client_secret,
+        {
+          payment_method: {
+            card: cardElement,
+          },
+        }
+      );
 
       if (stripeError) {
         throw new Error(stripeError.message);
       }
-
-      // Update payment session with payment method
-      await client.carts.updatePaymentSession(cart.id, selectedPaymentSession.provider_id, {
-        data: {
-          payment_method_id: paymentMethod.id,
-        },
-      });
-
-      // Select the payment session
-      await client.carts.setPaymentSession(cart.id, {
-        provider_id: selectedPaymentSession.provider_id,
-      });
 
       onNext();
     } catch (err: any) {
@@ -113,8 +121,25 @@ const PaymentForm: React.FC<CheckoutPaymentProps> = ({ onNext, onPrevious }) => 
           </IonCardTitle>
         </IonCardHeader>
         <IonCardContent>
-          {selectedPaymentSession ? (
+          {paymentProviders.length > 0 ? (
             <div>
+              <IonItem>
+                <IonLabel>Payment Provider</IonLabel>
+                <IonSelect
+                  value={selectedPaymentProvider?.id}
+                  placeholder="Select payment provider"
+                  onIonChange={(e) => handleProviderChange(e.detail.value)}
+                >
+                  {paymentProviders.map((provider) => (
+                    <IonSelectOption key={provider.id} value={provider.id}>
+                      {provider.id.includes('stripe') ? 'Stripe' : provider.id}
+                    </IonSelectOption>
+                  ))}
+                </IonSelect>
+              </IonItem>
+              
+              {selectedPaymentProvider?.id.includes('stripe') && selectedPaymentSession && (
+                <>
               <IonItem lines="none">
                 <IonLabel>
                   <h3>Payment Method</h3>
@@ -136,11 +161,13 @@ const PaymentForm: React.FC<CheckoutPaymentProps> = ({ onNext, onPrevious }) => 
                   Your payment information is secure and encrypted.
                 </p>
               </IonText>
+                </>
+              )}
             </div>
           ) : (
             <IonItem>
               <IonLabel>
-                <IonText color="medium">Loading payment methods...</IonText>
+                <IonText color="medium">Loading payment providers...</IonText>
               </IonLabel>
               <IonSpinner slot="end" />
             </IonItem>
@@ -168,7 +195,7 @@ const PaymentForm: React.FC<CheckoutPaymentProps> = ({ onNext, onPrevious }) => 
         <IonButton 
           expand="block" 
           onClick={handlePayment}
-          disabled={!stripe || !selectedPaymentSession || isLoading}
+          disabled={!stripe || !selectedPaymentSession?.data?.client_secret || isLoading}
         >
           {isLoading ? <IonSpinner /> : 'Continue to Review'}
         </IonButton>

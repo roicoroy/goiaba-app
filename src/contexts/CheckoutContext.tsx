@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useCartContext } from './CartContext';
 import { useCustomerContext } from './CustomerContext';
+import { useRegionContext } from './RegionContext';
 import { useMedusa } from 'medusa-react';
 import { API_CONFIG } from '../utils/constants';
 
@@ -20,6 +21,18 @@ interface PaymentSession {
   status: string;
 }
 
+interface PaymentProvider {
+  id: string;
+  is_enabled: boolean;
+}
+
+interface PaymentCollection {
+  id: string;
+  currency_code: string;
+  amount: number;
+  payment_sessions: PaymentSession[];
+}
+
 interface CheckoutContextType {
   // Checkout steps
   currentStep: number;
@@ -32,9 +45,17 @@ interface CheckoutContextType {
   loadShippingMethods: () => Promise<void>;
   
   // Payment
+  paymentProviders: PaymentProvider[];
+  selectedPaymentProvider: PaymentProvider | null;
+  setSelectedPaymentProvider: (provider: PaymentProvider) => void;
+  loadPaymentProviders: () => Promise<void>;
+  
+  paymentCollection: PaymentCollection | null;
   paymentSessions: PaymentSession[];
   selectedPaymentSession: PaymentSession | null;
   setSelectedPaymentSession: (session: PaymentSession) => void;
+  createPaymentCollection: () => Promise<void>;
+  createPaymentSession: (providerId: string) => Promise<void>;
   initializePaymentSessions: () => Promise<void>;
   
   // Order completion
@@ -57,11 +78,15 @@ interface CheckoutProviderProps {
 export const CheckoutProvider: React.FC<CheckoutProviderProps> = ({ children }) => {
   const { cart } = useCartContext();
   const { customer } = useCustomerContext();
+  const { selectedRegion } = useRegionContext();
   const { client } = useMedusa();
   
   const [currentStep, setCurrentStep] = useState(0);
   const [shippingMethods, setShippingMethods] = useState<ShippingMethod[]>([]);
   const [selectedShippingMethod, setSelectedShippingMethod] = useState<ShippingMethod | null>(null);
+  const [paymentProviders, setPaymentProviders] = useState<PaymentProvider[]>([]);
+  const [selectedPaymentProvider, setSelectedPaymentProvider] = useState<PaymentProvider | null>(null);
+  const [paymentCollection, setPaymentCollection] = useState<PaymentCollection | null>(null);
   const [paymentSessions, setPaymentSessions] = useState<PaymentSession[]>([]);
   const [selectedPaymentSession, setSelectedPaymentSession] = useState<PaymentSession | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -85,28 +110,171 @@ export const CheckoutProvider: React.FC<CheckoutProviderProps> = ({ children }) 
     }
   };
 
-  const initializePaymentSessions = async () => {
+  const loadPaymentProviders = async () => {
+    if (!selectedRegion?.id) return;
+    
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const response = await fetch(`${API_CONFIG.BASE_URL}/store/payment-providers?region_id=${selectedRegion.id}`, {
+        method: 'GET',
+        headers: {
+          'x-publishable-api-key': API_CONFIG.PUBLISHABLE_KEY,
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to load payment providers');
+      }
+      
+      const data = await response.json();
+      const enabledProviders = data.payment_providers.filter((provider: PaymentProvider) => provider.is_enabled);
+      setPaymentProviders(enabledProviders);
+      
+      // Auto-select Stripe if available
+      const stripeProvider = enabledProviders.find((provider: PaymentProvider) => 
+        provider.id.includes('stripe')
+      );
+      if (stripeProvider) {
+        setSelectedPaymentProvider(stripeProvider);
+      } else if (enabledProviders.length > 0) {
+        setSelectedPaymentProvider(enabledProviders[0]);
+      }
+    } catch (err) {
+      console.error('Failed to load payment providers:', err);
+      setError('Failed to load payment providers');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const createPaymentCollection = async () => {
     if (!cart?.id) return;
     
     try {
       setIsLoading(true);
       setError(null);
       
-      // Initialize payment sessions
-      const response = await client.carts.createPaymentSessions(cart.id);
-      const sessions = response.cart.payment_sessions || [];
-      setPaymentSessions(sessions);
+      const response = await fetch(`${API_CONFIG.BASE_URL}/store/payment-collections`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-publishable-api-key': API_CONFIG.PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          cart_id: cart.id,
+        }),
+      });
       
-      // Auto-select Stripe if available
-      const stripeSession = sessions.find((session: PaymentSession) => 
-        session.provider_id === 'stripe'
-      );
-      if (stripeSession) {
-        setSelectedPaymentSession(stripeSession);
+      if (!response.ok) {
+        throw new Error('Failed to create payment collection');
       }
+      
+      const data = await response.json();
+      setPaymentCollection(data.payment_collection);
+    } catch (err) {
+      console.error('Failed to create payment collection:', err);
+      setError('Failed to create payment collection');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const createPaymentSession = async (providerId: string) => {
+    if (!paymentCollection?.id) return;
+    
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const response = await fetch(`${API_CONFIG.BASE_URL}/store/payment-collections/${paymentCollection.id}/payment-sessions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-publishable-api-key': API_CONFIG.PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          provider_id: providerId,
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to create payment session');
+      }
+      
+      const data = await response.json();
+      setPaymentCollection(data.payment_collection);
+      setPaymentSessions(data.payment_collection.payment_sessions || []);
+      
+      // Auto-select the created session
+      if (data.payment_collection.payment_sessions?.length > 0) {
+        setSelectedPaymentSession(data.payment_collection.payment_sessions[0]);
+      }
+    } catch (err) {
+      console.error('Failed to create payment session:', err);
+      setError('Failed to create payment session');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const initializePaymentSessions = async () => {
+    if (!selectedRegion?.id) return;
+    
+    try {
+      // Load payment providers first
+      await loadPaymentProviders();
+      
+      // Create payment collection
+      await createPaymentCollection();
     } catch (err) {
       console.error('Failed to initialize payment sessions:', err);
       setError('Failed to initialize payment');
+    }
+  };
+
+  // Auto-create payment session when provider is selected
+  useEffect(() => {
+    if (selectedPaymentProvider && paymentCollection && !selectedPaymentSession) {
+      createPaymentSession(selectedPaymentProvider.id);
+    }
+  }, [selectedPaymentProvider, paymentCollection]);
+
+  // Auto-load payment providers when region changes
+  useEffect(() => {
+    if (selectedRegion?.id) {
+      loadPaymentProviders();
+    }
+  }, [selectedRegion?.id]);
+
+  // Auto-create payment collection when cart and providers are ready
+  useEffect(() => {
+    if (cart?.id && paymentProviders.length > 0 && !paymentCollection) {
+      createPaymentCollection();
+    }
+  }, [cart?.id, paymentProviders.length, paymentCollection]);
+
+  const completeOrder = async () => {
+    if (!cart?.id || !selectedPaymentSession) return null;
+    
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      // Complete the cart to create an order
+      const response = await client.carts.complete(cart.id);
+      
+      if (response.type === 'order') {
+        setCompletedOrder(response.data);
+        return { order: response.data };
+      } else {
+        throw new Error('Order completion failed');
+      }
+    } catch (err) {
+      console.error('Failed to complete order:', err);
+      setError('Failed to complete order');
+      return null;
     } finally {
       setIsLoading(false);
     }
@@ -151,9 +319,16 @@ export const CheckoutProvider: React.FC<CheckoutProviderProps> = ({ children }) 
     selectedShippingMethod,
     setSelectedShippingMethod,
     loadShippingMethods,
+    paymentProviders,
+    selectedPaymentProvider,
+    setSelectedPaymentProvider,
+    loadPaymentProviders,
+    paymentCollection,
     paymentSessions,
     selectedPaymentSession,
     setSelectedPaymentSession,
+    createPaymentCollection,
+    createPaymentSession,
     initializePaymentSessions,
     completeOrder,
     isLoading,

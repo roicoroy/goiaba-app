@@ -73,52 +73,54 @@ const CheckoutPage: React.FC = () => {
           // Prepare shipping address
           if (customer.shipping_addresses && customer.shipping_addresses.length > 0) {
             const address = customer.shipping_addresses[0];
-            if (address.first_name && address.last_name && address.address_1) {
-              // Validate country code - if it's inconsistent with location data, skip the address
+            if (address.first_name && address.last_name && address.address_1 && address.city && address.postal_code) {
+              // Fix country code if it's inconsistent with Brazilian location data
+              let countryCode = address.country_code;
               const isBrazilianLocation = address.city === "Belo Horizonte" || address.province === "MG";
-              const isDenmarkCode = address.country_code === "dk";
               
-              if (isBrazilianLocation && isDenmarkCode) {
-                console.warn("Skipping shipping address with inconsistent country code (dk) for Brazilian location");
-              } else {
-                shippingAddress = {
-                  first_name: address.first_name,
-                  last_name: address.last_name,
-                  company: address.company || null,
-                  address_1: address.address_1,
-                  address_2: address.address_2 || null,
-                  city: address.city,
-                  country_code: address.country_code,
-                  province: address.province || null,
-                  postal_code: address.postal_code,
-                  phone: address.phone || null,
-                };
+              if (isBrazilianLocation && address.country_code === "dk") {
+                console.warn("Fixing country code from 'dk' to 'br' for Brazilian location");
+                countryCode = "br";
               }
+              
+              shippingAddress = {
+                first_name: address.first_name,
+                last_name: address.last_name,
+                company: address.company || null,
+                address_1: address.address_1,
+                address_2: address.address_2 || null,
+                city: address.city,
+                country_code: countryCode,
+                province: address.province || null,
+                postal_code: address.postal_code,
+                phone: address.phone || null,
+              };
             }
           }
 
           // Prepare billing address
-          if (customer.billing_address && customer.billing_address.first_name && customer.billing_address.last_name) {
-            // Validate country code for billing address too
+          if (customer.billing_address && customer.billing_address.first_name && customer.billing_address.last_name && customer.billing_address.address_1) {
+            // Fix country code for billing address too
+            let countryCode = customer.billing_address.country_code;
             const isBrazilianLocation = customer.billing_address.city === "Belo Horizonte" || customer.billing_address.province === "MG";
-            const isDenmarkCode = customer.billing_address.country_code === "dk";
             
-            if (isBrazilianLocation && isDenmarkCode) {
-              console.warn("Skipping billing address with inconsistent country code (dk) for Brazilian location");
-            } else {
-              billingAddress = {
-                first_name: customer.billing_address.first_name,
-                last_name: customer.billing_address.last_name,
-                company: customer.billing_address.company || null,
-                address_1: customer.billing_address.address_1,
-                address_2: customer.billing_address.address_2 || null,
-                city: customer.billing_address.city,
-                country_code: customer.billing_address.country_code,
-                province: customer.billing_address.province || null,
-                postal_code: customer.billing_address.postal_code,
-                phone: customer.billing_address.phone || null,
-              };
+            if (isBrazilianLocation && customer.billing_address.country_code === "dk") {
+              console.warn("Fixing country code from 'dk' to 'br' for Brazilian location");
+              countryCode = "br";
             }
+            
+            billingAddress = {
+              first_name: customer.billing_address.first_name,
+              last_name: customer.billing_address.last_name,
+              company: customer.billing_address.company || null,
+              address_1: customer.billing_address.address_1,
+              address_2: customer.billing_address.address_2 || null,
+              city: customer.billing_address.city,
+              country_code: countryCode,
+              province: customer.billing_address.province || null,
+              postal_code: customer.billing_address.postal_code,
+              phone: customer.billing_address.phone || null,
+            };
           }
 
           const cartUpdateData = {

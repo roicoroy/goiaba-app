@@ -72,12 +72,38 @@ const CheckoutPage: React.FC = () => {
             email: customer.email,
           };
 
+          // Only add addresses if they exist and have required fields
           if (customer.shipping_addresses && customer.shipping_addresses.length > 0) {
-            updatePayload.shipping_address = customer.shipping_addresses[0];
+            const shippingAddress = customer.shipping_addresses[0];
+            if (shippingAddress.first_name && shippingAddress.last_name && shippingAddress.address_1) {
+              updatePayload.shipping_address = {
+                first_name: shippingAddress.first_name,
+                last_name: shippingAddress.last_name,
+                company: shippingAddress.company || null,
+                address_1: shippingAddress.address_1,
+                address_2: shippingAddress.address_2 || null,
+                city: shippingAddress.city,
+                country_code: shippingAddress.country_code,
+                province: shippingAddress.province || null,
+                postal_code: shippingAddress.postal_code,
+                phone: shippingAddress.phone || null,
+              };
+            }
           }
 
-          if (customer.billing_address) {
-            updatePayload.billing_address = customer.billing_address;
+          if (customer.billing_address && customer.billing_address.first_name && customer.billing_address.last_name) {
+            updatePayload.billing_address = {
+              first_name: customer.billing_address.first_name,
+              last_name: customer.billing_address.last_name,
+              company: customer.billing_address.company || null,
+              address_1: customer.billing_address.address_1,
+              address_2: customer.billing_address.address_2 || null,
+              city: customer.billing_address.city,
+              country_code: customer.billing_address.country_code,
+              province: customer.billing_address.province || null,
+              postal_code: customer.billing_address.postal_code,
+              phone: customer.billing_address.phone || null,
+            };
           }
 
           await client.carts.update(cart.id, updatePayload);

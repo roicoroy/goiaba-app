@@ -286,10 +286,10 @@ export const CheckoutProvider: React.FC<CheckoutProviderProps> = ({ children }) 
 
   // Auto-load shipping methods when cart changes
   useEffect(() => {
-    if (cart?.id && cart.shipping_address) {
+    if (cart?.id && cart.shipping_address && currentStep >= 1) {
       loadShippingMethods();
     }
-  }, [cart?.id, cart?.shipping_address?.id]);
+  }, [cart?.id, cart?.shipping_address?.id, currentStep]);
 
   const value: CheckoutContextType = {
     currentStep,

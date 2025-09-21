@@ -414,6 +414,7 @@ export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) 
 
             const headers: Record<string, string> = {
                 'Content-Type': 'application/json',
+                'x-publishable-api-key': API_CONFIG.PUBLISHABLE_KEY,
                 'Authorization': `Bearer ${token}`,
             };
 

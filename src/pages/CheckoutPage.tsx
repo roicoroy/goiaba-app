@@ -124,7 +124,6 @@ const CheckoutPage: React.FC = () => {
           }
 
           const cartUpdateData = {
-            customer_id: customer.id,
             email: customer.email,
             billing_address: billingAddress,
             shipping_address: shippingAddress,

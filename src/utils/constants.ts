@@ -1,5 +1,5 @@
 export const API_CONFIG = {
-  BASE_URL: 'https://localhost:9000',
+  BASE_URL: 'http://localhost:9000',
   PUBLISHABLE_KEY: 'pk_a765f901d115404d7c3e3aad73b65f2ce6131cbf73453afc39b882c7eb4cd8f6',
   STRIPE_PUBLISHABLE_KEY: 'pk_test_2qqvb6DTqKondL46mnEjZ68e',
 } as const;

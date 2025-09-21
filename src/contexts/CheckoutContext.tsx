@@ -280,31 +280,6 @@ export const CheckoutProvider: React.FC<CheckoutProviderProps> = ({ children }) 
     }
   };
 
-  const completeOrder = async () => {
-    if (!cart?.id || !selectedPaymentSession) return null;
-    
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      // Complete the cart to create an order
-      const response = await client.carts.complete(cart.id);
-      
-      if (response.type === 'order') {
-        setCompletedOrder(response.data);
-        return { order: response.data };
-      } else {
-        throw new Error('Order completion failed');
-      }
-    } catch (err) {
-      console.error('Failed to complete order:', err);
-      setError('Failed to complete order');
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   // Auto-load shipping methods when cart changes
   useEffect(() => {
     if (cart?.id && cart.shipping_address) {

@@ -55,38 +55,30 @@ const CheckoutAddresses: React.FC<CheckoutAddressesProps> = ({ onNext }) => {
       const shippingAddress = customer?.shipping_addresses?.find(addr => addr.id === selectedShippingAddress);
       const billingAddress = selectedBillingAddress 
         ? customer?.shipping_addresses?.find(addr => addr.id === selectedBillingAddress) || customer?.billing_address
-        : shippingAddress; // Use shipping as billing if not specified
+        : shippingAddress;
       
       if (!shippingAddress) {
         throw new Error('Please select a shipping address');
       }
 
-      // Update cart with addresses
+      // Helper to create a clean address object for the API
+      const cleanAddress = (addr: any) => ({
+          first_name: addr.first_name,
+          last_name: addr.last_name,
+          company: addr.company || null,
+          address_1: addr.address_1,
+          address_2: addr.address_2 || null,
+          city: addr.city,
+          country_code: addr.country_code,
+          province: addr.province || null,
+          postal_code: addr.postal_code,
+          phone: addr.phone || null,
+      });
+
+      // Update cart with the clean address objects
       await client.carts.update(cart.id, {
-        shipping_address: {
-          first_name: shippingAddress.first_name,
-          last_name: shippingAddress.last_name,
-          company: shippingAddress.company || '',
-          address_1: shippingAddress.address_1,
-          address_2: shippingAddress.address_2 || '',
-          city: shippingAddress.city,
-          country_code: shippingAddress.country_code,
-          province: shippingAddress.province || '',
-          postal_code: shippingAddress.postal_code,
-          phone: shippingAddress.phone || '',
-        },
-        billing_address: billingAddress ? {
-          first_name: billingAddress.first_name,
-          last_name: billingAddress.last_name,
-          company: billingAddress.company || '',
-          address_1: billingAddress.address_1,
-          address_2: billingAddress.address_2 || '',
-          city: billingAddress.city,
-          country_code: billingAddress.country_code,
-          province: billingAddress.province || '',
-          postal_code: billingAddress.postal_code,
-          phone: billingAddress.phone || '',
-        } : undefined,
+        shipping_address: cleanAddress(shippingAddress),
+        billing_address: billingAddress ? cleanAddress(billingAddress) : undefined,
       });
       
       onNext();

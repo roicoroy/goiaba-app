@@ -20,6 +20,7 @@ import ProductDetailsPage from './pages/ProductDetailsPage';
 import OrderConfirmationPage from './pages/OrderConfirmationPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import CheckoutPage from './pages/CheckoutPage';
+import PrivateRoute from './components/PrivateRoute';
 import '@ionic/react/css/core.css';
 
 /* Basic CSS for apps built with Ionic */
@@ -51,43 +52,21 @@ import './theme/variables.css';
 
 setupIonicReact();
 
-const App: React.FC = () => {
-  const isAuthenticated = () => {
-    const token = localStorage.getItem('authToken');
-    const authFlag = localStorage.getItem('isAuthenticated');
-    const isValid = token && token !== 'null' && token !== 'undefined' && authFlag === 'true';
-    console.log('🔍 App isAuthenticated check:', { 
-      hasToken: !!token, 
-      authFlag, 
-      isValid,
-      tokenLength: token?.length || 0 
-    });
-    return isValid;
-  };
-
-  return (
-    <ErrorBoundary>
-      <IonApp>
-        <IonReactRouter>
-          <IonRouterOutlet>
-            <Route path="/login" component={LoginPage} exact={true} />
-            <Route path="/register" component={RegisterPage} exact={true} />
-            <Route
-              render={() => (
-                <AuthenticatedTabs />
-              )}
-            />
-            <Route exact path="/">
-              <Redirect to={isAuthenticated() ? "/tabs/tab1" : "/login"} />
-              <Route path="/checkout" component={CheckoutPage} exact={true} />
-            </Route>
-            <Route path="/checkout" component={CheckoutPage} exact={true} />
-          </IonRouterOutlet>
-        </IonReactRouter>
-      </IonApp>
-    </ErrorBoundary>
-  );
-};
+const App: React.FC = () => (
+  <ErrorBoundary>
+    <IonApp>
+      <IonReactRouter>
+        <IonRouterOutlet>
+          <Route path="/login" component={LoginPage} exact={true} />
+          <Route path="/register" component={RegisterPage} exact={true} />
+          <PrivateRoute path="/tabs" component={AuthenticatedTabs} />
+          <PrivateRoute path="/checkout" component={CheckoutPage} exact={true} />
+          <Route exact path="/" render={() => <Redirect to="/tabs/tab1" />} />
+        </IonRouterOutlet>
+      </IonReactRouter>
+    </IonApp>
+  </ErrorBoundary>
+);
 
 const AuthenticatedTabs: React.FC = () => (
   <IonTabs>

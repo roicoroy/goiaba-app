@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { API_CONFIG } from '../utils/constants';
 
 interface Address {
@@ -64,6 +64,20 @@ export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) 
     const [customer, setCustomer] = useState<Customer | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    const cleanAddressForApi = (address: Partial<Address>) => {
+        const {
+            id,
+            customer_id,
+            created_at,
+            updated_at,
+            deleted_at,
+            is_default_billing,
+            is_default_shipping,
+            ...cleanAddress
+        } = address;
+        return cleanAddress;
+    };
 
     const fetchCustomer = useCallback(async () => {
         const token = localStorage.getItem('authToken');
@@ -140,6 +154,10 @@ export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) 
         }
     }, []);
 
+    useEffect(() => {
+        fetchCustomer();
+    }, [fetchCustomer]);
+
     const updateCustomer = async (data: Partial<Customer>) => {
         try {
             setIsLoading(true);
@@ -214,16 +232,10 @@ export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) 
                 'Authorization': `Bearer ${token}`,
             };
 
-            const shippingAddressData = {
-                ...address,
-                is_default_billing: false,
-                is_default_shipping: true,
-            };
-
             const response = await fetch(`${API_CONFIG.BASE_URL}/store/customers/me/addresses`, {
                 method: 'POST',
                 headers,
-                body: JSON.stringify(shippingAddressData),
+                body: JSON.stringify(cleanAddressForApi(address)),
             });
 
             if (response.ok) {
@@ -261,7 +273,7 @@ export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) 
             const response = await fetch(`${API_CONFIG.BASE_URL}/store/customers/me/addresses/${addressId}`, {
                 method: 'POST',
                 headers,
-                body: JSON.stringify(address),
+                body: JSON.stringify(cleanAddressForApi(address)),
             });
 
             if (response.ok) {
@@ -331,16 +343,10 @@ export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) 
                 'Authorization': `Bearer ${token}`,
             };
 
-            const billingAddressData = {
-                ...address,
-                is_default_billing: true,
-                is_default_shipping: false,
-            };
-
             const response = await fetch(`${API_CONFIG.BASE_URL}/store/customers/me/addresses`, {
                 method: 'POST',
                 headers,
-                body: JSON.stringify(billingAddressData),
+                body: JSON.stringify(cleanAddressForApi(address)),
             });
 
             if (response.ok) {
@@ -359,55 +365,37 @@ export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) 
     };
 
     const setDefaultBillingAddress = async (addressId: string) => {
+        // Note: This relies on cartId from localStorage, which is not ideal.
+        // This logic might be better placed in a context that manages the cart.
+        const cartId = localStorage.getItem('cartId');
+        if (!cartId) {
+            setError("No cart available to update billing address.");
+            return;
+        }
+
         try {
             setIsLoading(true);
             setError(null);
 
-            const token = localStorage.getItem('authToken');
-            if (!token) {
-                throw new Error('No authentication token found');
-            }
-
             const headers: Record<string, string> = {
                 'Content-Type': 'application/json',
-                'x-publishable-api-key': API_CONFIG.PUBLISHABLE_KEY,
-                'Authorization': `Bearer ${token}`,
             };
 
-            const addressToUpdate = customer?.shipping_addresses?.find(addr => addr.id === addressId);
-            if (!addressToUpdate) {
-                throw new Error('Address not found');
-            }
-
-            const cleanAddressData = {
-                first_name: addressToUpdate.first_name,
-                last_name: addressToUpdate.last_name,
-                address_1: addressToUpdate.address_1,
-                city: addressToUpdate.city,
-                country_code: addressToUpdate.country_code,
-                postal_code: addressToUpdate.postal_code,
-                is_default_billing: true,
-                ...(addressToUpdate.company && { company: addressToUpdate.company }),
-                ...(addressToUpdate.address_2 && { address_2: addressToUpdate.address_2 }),
-                ...(addressToUpdate.province && { province: addressToUpdate.province }),
-                ...(addressToUpdate.phone && { phone: addressToUpdate.phone }),
-            };
-
-            const response = await fetch(`${API_CONFIG.BASE_URL}/store/customers/me/addresses/${addressId}`, {
+            const response = await fetch(`${API_CONFIG.BASE_URL}/store/carts/${cartId}`, {
                 method: 'POST',
                 headers,
-                body: JSON.stringify(cleanAddressData),
+                body: JSON.stringify({
+                    billing_address_id: addressId,
+                }),
             });
 
-            if (response.ok) {
-                await fetchCustomer();
-            } else {
+            if (!response.ok) {
                 const errorText = await response.text();
-                throw new Error(`Failed to set default billing: ${response.status} ${errorText}`);
+                throw new Error(`Failed to set billing address: ${response.status} ${errorText}`);
             }
         } catch (err) {
             console.error('Failed to set default billing address:', err);
-            setError('Failed to set default billing address');
+            setError(err instanceof Error ? err.message : 'Failed to set billing address');
             throw err;
         } finally {
             setIsLoading(false);
@@ -426,44 +414,26 @@ export const CustomerProvider: React.FC<CustomerProviderProps> = ({ children }) 
 
             const headers: Record<string, string> = {
                 'Content-Type': 'application/json',
-                'x-publishable-api-key': API_CONFIG.PUBLISHABLE_KEY,
                 'Authorization': `Bearer ${token}`,
             };
 
-            const addressToUpdate = customer?.shipping_addresses?.find(addr => addr.id === addressId);
-            if (!addressToUpdate) {
-                throw new Error('Address not found');
-            }
-
-            const cleanAddressData = {
-                first_name: addressToUpdate.first_name,
-                last_name: addressToUpdate.last_name,
-                address_1: addressToUpdate.address_1,
-                city: addressToUpdate.city,
-                country_code: addressToUpdate.country_code,
-                postal_code: addressToUpdate.postal_code,
-                is_default_shipping: true,
-                ...(addressToUpdate.company && { company: addressToUpdate.company }),
-                ...(addressToUpdate.address_2 && { address_2: addressToUpdate.address_2 }),
-                ...(addressToUpdate.province && { province: addressToUpdate.province }),
-                ...(addressToUpdate.phone && { phone: addressToUpdate.phone }),
-            };
-
-            const response = await fetch(`${API_CONFIG.BASE_URL}/store/customers/me/addresses/${addressId}`, {
+            const response = await fetch(`${API_CONFIG.BASE_URL}/store/customers/me`, {
                 method: 'POST',
                 headers,
-                body: JSON.stringify(cleanAddressData),
+                body: JSON.stringify({
+                    default_shipping_address_id: addressId,
+                }),
             });
 
             if (response.ok) {
-                await fetchCustomer();
+                await fetchCustomer(); // Refresh customer data to reflect the change
             } else {
                 const errorText = await response.text();
                 throw new Error(`Failed to set default shipping: ${response.status} ${errorText}`);
             }
         } catch (err) {
             console.error('Failed to set default shipping address:', err);
-            setError('Failed to set default shipping address');
+            setError(err instanceof Error ? err.message : 'Failed to set default shipping address');
             throw err;
         } finally {
             setIsLoading(false);

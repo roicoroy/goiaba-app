@@ -44,10 +44,22 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
       const response = await client.carts.retrieve(id);
-      setCart(response.cart);
-    } catch (err) {
-      console.error('Failed to fetch cart:', err);
-      setError('Failed to load cart');
+      
+      // If the cart is found and returned, set it.
+      if (response && response.cart) {
+        setCart(response.cart);
+      } else {
+        // If the cart is not found (response.cart is falsy), clear the invalid ID.
+        console.warn("Cart not found on server. Clearing local cart ID.");
+        setCartId(null);
+        setCart(null);
+        localStorage.removeItem('cartId');
+        setError('Failed to load cart: Not found.');
+      }
+    } catch (err: any) { 
+      // Fallback for any other unexpected errors during fetch.
+      console.error('An unexpected error occurred while fetching the cart:', err);
+      setError('Failed to load cart.');
     } finally {
       setIsLoading(false);
     }
@@ -67,44 +79,73 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     }
   }, [selectedRegion, cartId]);
 
-  const createNewCart = async () => {
-    if (!selectedRegion) return;
+  const createNewCart = async (): Promise<string | null> => {
+    console.log("Attempting to create new cart.");
+    if (!selectedRegion) {
+      console.error("Cannot create cart: No selected region.");
+      return null;
+    }
+    console.log("Creating cart for region:", selectedRegion.name);
 
     try {
       setError(null);
-      const response = await createCart.mutateAsync({
+      const { cart: newCart } = await createCart.mutateAsync({
         region_id: selectedRegion.id,
       });
       
-      if (response.cart) {
-        setCartId(response.cart.id);
-        localStorage.setItem('cartId', response.cart.id);
+      if (newCart) {
+        console.log("Successfully created new cart with ID:", newCart.id);
+        setCartId(newCart.id);
+        localStorage.setItem('cartId', newCart.id);
+        return newCart.id;
       }
+      console.warn("Cart creation returned no cart object.");
+      return null;
     } catch (err) {
       setError('Failed to create cart');
       console.error('Cart creation error:', err);
+      return null;
     }
   };
 
   const addToCart = async (variantId: string, quantity: number) => {
-    if (!cartId) {
-      await createNewCart();
-      return;
-    }
+    console.log("--- Add To Cart Fired ---");
+    console.log("Initial cartId:", cartId);
+    setIsLoading(true);
+    setError(null);
 
     try {
-      setError(null);
-      setIsLoading(true);
-      await client.carts.lineItems.create(cartId, {
+      // Ensure we have a cart ID. If not, create a new cart and get its ID.
+      let currentCartId = cartId;
+      if (!currentCartId) {
+        console.log("No cartId found, calling createNewCart...");
+        currentCartId = await createNewCart();
+        console.log("createNewCart returned ID:", currentCartId);
+      }
+
+      if (!currentCartId) {
+        throw new Error("Could not create or retrieve cart.");
+      }
+      console.log(`Using cartId: ${currentCartId} to add item.`);
+
+      // Add the item to the cart.
+      await client.carts.lineItems.create(currentCartId, {
         variant_id: variantId,
         quantity,
       });
-      // Refresh cart data
-      await fetchCart(cartId);
+      console.log("Successfully added line item.");
+
+      // Refresh cart data to reflect the new item.
+      console.log("Refreshing cart data...");
+      await fetchCart(currentCartId);
+      console.log("Cart data refreshed.");
     } catch (err) {
-      setError('Failed to add item to cart');
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      setError(`Failed to add item to cart: ${errorMessage}`);
       console.error('Add to cart error:', err);
+    } finally {
       setIsLoading(false);
+      console.log("--- Add To Cart Finished ---");
     }
   };
 
@@ -142,6 +183,12 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     }
   };
 
+  const refreshCart = async () => {
+    if (cartId) {
+      await fetchCart(cartId);
+    }
+  };
+
   const cartItemCount = cart?.items?.reduce((total, item) => total + item.quantity, 0) || 0;
 
   const value: CartContextType = {
@@ -152,6 +199,7 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     removeFromCart,
     cartItemCount,
     error,
+    refreshCart,
   };
 
   return (

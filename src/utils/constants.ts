@@ -1,7 +1,7 @@
 export const API_CONFIG = {
   BASE_URL: 'http://localhost:9000',
-  PUBLISHABLE_KEY: 'pk_ab18936f73e3e8ccbe247b44861e58684ca46c79aaaa8bb38beab5766012563c',
-  STRIPE_PUBLISHABLE_KEY: 'pk_test_51Pzad704q0B7q2wz8zASldczqkHqbIvXsB2DBO20OEkAC9q7RUvoiBcZ9NVOakZMTWtg2vxgcJQN0mUpXtrThg2D00fHtuTwvj',
+  PUBLISHABLE_KEY: 'pk_a765f901d115404d7c3e3aad73b65f2ce6131cbf73453afc39b882c7eb4cd8f6',
+  STRIPE_PUBLISHABLE_KEY: 'pk_test_2qqvb6DTqKondL46mnEjZ68e',
 } as const;
 
 export const STORAGE_KEYS = {

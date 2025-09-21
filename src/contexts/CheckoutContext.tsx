@@ -142,7 +142,7 @@ export const CheckoutProvider: React.FC<CheckoutProviderProps> = ({ children }) 
     if (cart?.id && cart.shipping_address) {
       loadShippingMethods();
     }
-  }, [cart?.id, cart?.shipping_address]);
+  }, [cart?.id, cart?.shipping_address?.id]);
 
   const value: CheckoutContextType = {
     currentStep,

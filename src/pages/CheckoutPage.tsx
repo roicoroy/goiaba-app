@@ -6,7 +6,6 @@ import {
   IonTitle,
   IonToolbar,
   IonButtons,
-  IonButton,
   IonBackButton,
   IonProgressBar,
   IonCard,
@@ -18,9 +17,8 @@ import {
   IonText,
   IonIcon,
   IonSpinner,
-  IonToast,
 } from '@ionic/react';
-import { checkmarkCircle, card, location, truck } from 'ionicons/icons';
+import { checkmarkCircle, card, location } from 'ionicons/icons';
 import { car } from 'ionicons/icons';
 import { useHistory } from 'react-router-dom';
 import { useCartContext } from '../contexts/CartContext';
@@ -32,6 +30,7 @@ import CheckoutPayment from '../components/CheckoutPayment';
 import CheckoutReview from '../components/CheckoutReview';
 import { formatPrice } from '../utils/formatters';
 import './CheckoutPage.css';
+import { useMedusa } from 'medusa-react';
 
 
 const CheckoutPage: React.FC = () => {
@@ -61,6 +60,36 @@ const CheckoutPage: React.FC = () => {
     { title: 'Review', icon: checkmarkCircle, component: CheckoutReview },
   ];
   console.log('🔍 CheckoutPage: Steps defined');
+
+  const { client } = useMedusa();
+
+  useEffect(() => {
+    const updateCartWithCustomer = async () => {
+      if (customer && cart && client) {
+        try {
+          const updatePayload: any = {
+            customer_id: customer.id,
+            email: customer.email,
+          };
+
+          if (customer.shipping_addresses && customer.shipping_addresses.length > 0) {
+            updatePayload.shipping_address = customer.shipping_addresses[0];
+          }
+
+          if (customer.billing_address) {
+            updatePayload.billing_address = customer.billing_address;
+          }
+
+          await client.carts.update(cart.id, updatePayload);
+
+        } catch (error) {
+          console.error("Failed to update cart with customer data", error);
+        }
+      }
+    };
+
+    updateCartWithCustomer();
+  }, [customer, cart, client]);
 
   // Handle order completion navigation
   useEffect(() => {
@@ -219,29 +248,20 @@ const CheckoutPage: React.FC = () => {
               </IonLabel>
               <IonLabel slot="end">
                 <h2 style={{ color: 'var(--ion-color-primary)' }}>
-                  {cart ? formatPrice(cart.total, cart.currency_code) : '$0.00'}
+                  {cart ? formatPrice(cart.total, cart.currency_code) : ''}
                 </h2>
               </IonLabel>
             </IonItem>
           </IonCardContent>
         </IonCard>
-        {console.log('🔍 CheckoutPage: Order summary rendered')}
 
-        {/* Current Step Component */}
-        {console.log('🔍 CheckoutPage: About to render current step component')}
-        {getCurrentStepComponent()}
-        {console.log('🔍 CheckoutPage: Current step component rendered')}
-
-        <IonToast
-          isOpen={showToast}
-          onDidDismiss={() => setShowToast(false)}
-          message={toastMessage}
-          duration={3000}
-          color={toastColor}
-        />
-        {console.log('🔍 CheckoutPage: Toast rendered')}
+        {/* Step Content */}
+        <div className="step-content">
+          {getCurrentStepComponent()}
+        </div>
+        {console.log('🔍 CheckoutPage: Step content rendered')}
+        
       </IonContent>
-      {console.log('🔍 CheckoutPage: Component render complete')}
     </IonPage>
   );
 };

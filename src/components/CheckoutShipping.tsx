@@ -16,6 +16,7 @@ import {
 } from '@ionic/react';
 import { car } from 'ionicons/icons';
 import { useCartShippingOptions } from 'medusa-react';
+import { API_CONFIG } from '../utils/constants';
 import { useCartContext } from '../contexts/CartContext';
 import { useMedusa } from 'medusa-react';
 import { formatPrice } from '../utils/formatters';
@@ -26,10 +27,41 @@ interface CheckoutShippingProps {
 }
 
 const CheckoutShipping: React.FC<CheckoutShippingProps> = ({ onNext, onPrevious }) => {
-  const { cart } = useCartContext();
-  const { shipping_options, isLoading: optionsLoading } = useCartShippingOptions(cart?.id || '', {
-    enabled: !!cart?.id,
-  });
+  const { cart, refreshCart } = useCartContext();
+  const [shipping_options, setShippingOptions] = useState<any[]>([]);
+  const [optionsLoading, setOptionsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!cart?.id) {
+      return;
+    }
+
+    const fetchShippingOptions = async () => {
+      setOptionsLoading(true);
+      try {
+        const response = await fetch(`${API_CONFIG.BASE_URL}/store/shipping-options?cart_id=${cart.id}`, {
+          headers: {
+            'x-publishable-api-key': API_CONFIG.PUBLISHABLE_KEY,
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setShippingOptions(data.shipping_options);
+        } else {
+          console.error("Failed to fetch shipping options");
+          setShippingOptions([]);
+        }
+      } catch (error) {
+        console.error("Error fetching shipping options:", error);
+        setShippingOptions([]);
+      } finally {
+        setOptionsLoading(false);
+      }
+    };
+
+    fetchShippingOptions();
+  }, [cart?.id]);
+
   const { client } = useMedusa();
   
   const [selectedShippingOptionId, setSelectedShippingOptionId] = useState<string>('');
@@ -53,6 +85,9 @@ const CheckoutShipping: React.FC<CheckoutShippingProps> = ({ onNext, onPrevious 
       await client.carts.addShippingMethod(cart.id, {
         option_id: selectedShippingOptionId,
       });
+      
+      // Refresh the cart data after adding the shipping method
+      await refreshCart();
       
       onNext();
     } catch (err) {

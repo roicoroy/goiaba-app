@@ -76,6 +76,13 @@ const CheckoutPage: React.FC = () => {
           if (customer.shipping_addresses && customer.shipping_addresses.length > 0) {
             const shippingAddress = customer.shipping_addresses[0];
             if (shippingAddress.first_name && shippingAddress.last_name && shippingAddress.address_1) {
+             // Validate country code - if it's inconsistent with location data, skip the address
+             const isBrazilianLocation = shippingAddress.city === "Belo Horizonte" || shippingAddress.province === "MG";
+             const isDenmarkCode = shippingAddress.country_code === "dk";
+             
+             if (isBrazilianLocation && isDenmarkCode) {
+               console.warn("Skipping address with inconsistent country code (dk) for Brazilian location");
+             } else {
               updatePayload.shipping_address = {
                 first_name: shippingAddress.first_name,
                 last_name: shippingAddress.last_name,
@@ -88,10 +95,18 @@ const CheckoutPage: React.FC = () => {
                 postal_code: shippingAddress.postal_code,
                 phone: shippingAddress.phone || null,
               };
+             }
             }
           }
 
           if (customer.billing_address && customer.billing_address.first_name && customer.billing_address.last_name) {
+           // Validate country code for billing address too
+           const isBrazilianLocation = customer.billing_address.city === "Belo Horizonte" || customer.billing_address.province === "MG";
+           const isDenmarkCode = customer.billing_address.country_code === "dk";
+           
+           if (isBrazilianLocation && isDenmarkCode) {
+             console.warn("Skipping billing address with inconsistent country code (dk) for Brazilian location");
+           } else {
             updatePayload.billing_address = {
               first_name: customer.billing_address.first_name,
               last_name: customer.billing_address.last_name,
@@ -104,6 +119,7 @@ const CheckoutPage: React.FC = () => {
               postal_code: customer.billing_address.postal_code,
               phone: customer.billing_address.phone || null,
             };
+           }
           }
 
           await client.carts.update(cart.id, updatePayload);

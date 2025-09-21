@@ -24,7 +24,7 @@ interface CheckoutReviewProps {
 
 const CheckoutReview: React.FC<CheckoutReviewProps> = ({ onPrevious }) => {
   const { cart } = useCartContext();
-  const { selectedShippingMethod, completeOrder } = useCheckoutContext();
+  const { selectedShippingMethod, completeOrder, selectedPaymentProvider } = useCheckoutContext();
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -101,7 +101,7 @@ const CheckoutReview: React.FC<CheckoutReviewProps> = ({ onPrevious }) => {
         <IonCard>
           <IonCardHeader>
             <IonCardTitle>
-              <IonIcon icon={truck} style={{ marginRight: '8px' }} />
+              <IonIcon icon={car} style={{ marginRight: '8px' }} />
               Shipping Method
             </IonCardTitle>
           </IonCardHeader>
@@ -127,8 +127,8 @@ const CheckoutReview: React.FC<CheckoutReviewProps> = ({ onPrevious }) => {
         <IonCardContent>
           <IonItem lines="none">
             <IonLabel>
-              <h3>Credit/Debit Card</h3>
-              <p>Payment will be processed securely via Stripe</p>
+              <h3>{selectedPaymentProvider?.id.includes('stripe') ? 'Credit/Debit Card via Stripe' : selectedPaymentProvider?.id}</h3>
+              <p>Payment will be processed securely</p>
             </IonLabel>
           </IonItem>
         </IonCardContent>

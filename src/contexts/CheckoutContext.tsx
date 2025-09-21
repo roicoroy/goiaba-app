@@ -93,6 +93,10 @@ export const CheckoutProvider: React.FC<CheckoutProviderProps> = ({ children }) 
   const [error, setError] = useState<string | null>(null);
   const [completedOrder, setCompletedOrder] = useState<any | null>(null);
 
+  // Add refs to track if operations are in progress
+  const [isLoadingProviders, setIsLoadingProviders] = useState(false);
+  const [isCreatingCollection, setIsCreatingCollection] = useState(false);
+
   const loadShippingMethods = async () => {
     if (!cart?.id) return;
     
@@ -111,10 +115,10 @@ export const CheckoutProvider: React.FC<CheckoutProviderProps> = ({ children }) 
   };
 
   const loadPaymentProviders = async () => {
-    if (!selectedRegion?.id) return;
+    if (!selectedRegion?.id || isLoadingProviders) return;
     
     try {
-      setIsLoading(true);
+      setIsLoadingProviders(true);
       setError(null);
       
       const response = await fetch(`${API_CONFIG.BASE_URL}/store/payment-providers?region_id=${selectedRegion.id}`, {
@@ -145,15 +149,15 @@ export const CheckoutProvider: React.FC<CheckoutProviderProps> = ({ children }) 
       console.error('Failed to load payment providers:', err);
       setError('Failed to load payment providers');
     } finally {
-      setIsLoading(false);
+      setIsLoadingProviders(false);
     }
   };
 
   const createPaymentCollection = async () => {
-    if (!cart?.id) return;
+    if (!cart?.id || isCreatingCollection || paymentCollection) return;
     
     try {
-      setIsLoading(true);
+      setIsCreatingCollection(true);
       setError(null);
       
       const response = await fetch(`${API_CONFIG.BASE_URL}/store/payment-collections`, {
@@ -177,7 +181,7 @@ export const CheckoutProvider: React.FC<CheckoutProviderProps> = ({ children }) 
       console.error('Failed to create payment collection:', err);
       setError('Failed to create payment collection');
     } finally {
-      setIsLoading(false);
+      setIsCreatingCollection(false);
     }
   };
 
@@ -236,24 +240,24 @@ export const CheckoutProvider: React.FC<CheckoutProviderProps> = ({ children }) 
 
   // Auto-create payment session when provider is selected
   useEffect(() => {
-    if (selectedPaymentProvider && paymentCollection && !selectedPaymentSession) {
+    if (selectedPaymentProvider && paymentCollection && !selectedPaymentSession && !isLoading) {
       createPaymentSession(selectedPaymentProvider.id);
     }
-  }, [selectedPaymentProvider, paymentCollection]);
+  }, [selectedPaymentProvider, paymentCollection, selectedPaymentSession, isLoading]);
 
   // Auto-load payment providers when region changes
   useEffect(() => {
-    if (selectedRegion?.id) {
+    if (selectedRegion?.id && paymentProviders.length === 0 && !isLoadingProviders) {
       loadPaymentProviders();
     }
-  }, [selectedRegion?.id]);
+  }, [selectedRegion?.id, paymentProviders.length, isLoadingProviders]);
 
   // Auto-create payment collection when cart and providers are ready
   useEffect(() => {
-    if (cart?.id && paymentProviders.length > 0 && !paymentCollection) {
+    if (cart?.id && paymentProviders.length > 0 && !paymentCollection && !isCreatingCollection) {
       createPaymentCollection();
     }
-  }, [cart?.id, paymentProviders.length, paymentCollection]);
+  }, [cart?.id, paymentProviders.length, paymentCollection, isCreatingCollection]);
 
   const completeOrder = async () => {
     if (!cart?.id || !selectedPaymentSession) return null;
